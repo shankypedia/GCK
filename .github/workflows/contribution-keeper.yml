@@ -1,0 +1,53 @@
+name: GitHub Contribution Keeper
+
+on:
+  schedule:
+    # Run at varied times throughout the day to appear more natural
+    # This creates a more realistic pattern of activity
+    - cron: '17 7,12,16,21 * * 1-5'  # Weekdays (varied times)
+    - cron: '42 10,15,19 * * 0,6'    # Weekends (different pattern)
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      commit_count:
+        description: 'Number of commits to create (leave empty for automatic)'
+        required: false
+        default: ''
+      force_run:
+        description: 'Force run even if probability would skip today'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  update:
+    # 10% chance to skip the job entirely (simulates days off)
+    if: ${{ github.event_name == 'workflow_dispatch' || random(1, 10) > 1 }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      - name: Run contribution script
+        run: python .github/scripts/make_contribution.py
+        env:
+          COMMIT_COUNT: ${{ github.event.inputs.commit_count }}
+          FORCE_RUN: ${{ github.event.inputs.force_run }}
+        
+      - name: Push changes
+        run: |
+          git push origin HEAD:main
